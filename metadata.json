@@ -1,0 +1,6 @@
+{
+  "name": "Progressive Association Society - Fund Collection Portal",
+  "description": "Fund collection, installment tracking, and member payment dashboard for Progressive Association Society with bank deposit reconciliation and money receipts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
