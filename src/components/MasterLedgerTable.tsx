@@ -1,7 +1,20 @@
 import React, { useState } from 'react';
 import { ShareRecord, MonthKey, ALL_MONTHS, SocietySummary } from '../types';
 import { formatTaka } from '../utils/calculations';
-import { Receipt, CreditCard, ChevronRight, AlertTriangle, CheckCircle, Clock, Trash2 } from 'lucide-react';
+import {
+  Receipt,
+  CreditCard,
+  ChevronRight,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Trash2,
+  SlidersHorizontal,
+  ChevronLeft,
+  Calendar,
+  Layers
+} from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface MasterLedgerTableProps {
   shares: ShareRecord[];
@@ -10,6 +23,11 @@ interface MasterLedgerTableProps {
   onOpenReceiptForShare: (share: ShareRecord, month?: MonthKey) => void;
   onSelectMember: (memberName: string) => void;
   onDeleteShare?: (shareId: string) => void;
+  // Month Configuration & Display Props
+  allConfiguredMonths: string[];
+  activeMonths: string[];
+  currentMonth: string;
+  onOpenMonthSettings: () => void;
 }
 
 export const MasterLedgerTable: React.FC<MasterLedgerTableProps> = ({
@@ -19,96 +37,141 @@ export const MasterLedgerTable: React.FC<MasterLedgerTableProps> = ({
   onOpenReceiptForShare,
   onSelectMember,
   onDeleteShare,
+  allConfiguredMonths,
+  activeMonths,
+  currentMonth,
+  onOpenMonthSettings,
 }) => {
+  const { requireAdmin } = useAuth();
   const [shareToDelete, setShareToDelete] = useState<ShareRecord | null>(null);
+
+  // Determine if months exceed 4 to apply horizontal scrolling specifically to the months section
+  const isMonthScrollActive = activeMonths.length > 4;
+  const isCurrentMonthOnly = activeMonths.length === 1 && activeMonths[0] === currentMonth;
+
   return (
     <div className="bg-white rounded-xl border border-slate-200/90 shadow-sm overflow-hidden">
       {/* Table toolbar / header info */}
-      <div className="px-5 py-4 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            <span>Comprehensive Share &amp; Installment Ledger</span>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
-              Showing {shares.length} Records
-            </span>
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Real-time spreadsheet view mirroring the Progressive Association Society Master Register
-          </p>
+      <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50/70 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div>
+            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <span>Comprehensive Share &amp; Installment Ledger</span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
+                {shares.length} Records
+              </span>
+            </h2>
+          </div>
         </div>
-        <div className="flex items-center gap-3 text-xs text-slate-600">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span>Paid (Tk. 2,800)</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-            <span>Due</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-            <span>Upcoming</span>
-          </div>
+
+        {/* Setting Button & Month Visibility Status */}
+        <div className="flex items-center flex-wrap gap-2.5">
+          {isCurrentMonthOnly ? (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span>Current Month Display: <strong>{currentMonth}</strong></span>
+              <span className="text-[10px] text-amber-700 font-normal hidden sm:inline">(Calculations exact)</span>
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+              <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Active: {activeMonths.join(', ')}</span>
+            </div>
+          )}
+
+          {/* Month Configuration Button */}
+          <button
+            type="button"
+            onClick={() => {
+              requireAdmin(() => {
+                onOpenMonthSettings();
+              }, 'configure ledger months and display settings');
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 hover:border-slate-400 text-xs font-bold shadow-2xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            title="Configure billing months: Add, remove, hide, or focus on current month"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Month Settings</span>
+            {isMonthScrollActive && (
+              <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[10px]">
+                Scroll
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* Overflow Table Container */}
+      {/* Main Table Container */}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           {/* Multi-tier Table Head */}
           <thead className="bg-slate-100 text-slate-700 border-b border-slate-300 font-semibold select-none">
             {/* Top row */}
             <tr>
-              <th rowSpan={2} className="px-3 py-3 border-r border-slate-300 w-12 text-center bg-slate-100/90 sticky left-0 z-10 shadow-[1px_0_0_0_#cbd5e1]">
+              <th rowSpan={2} className="px-2 py-2.5 border-r border-slate-300 w-10 text-center bg-slate-100/90 sticky left-0 z-10 shadow-[1px_0_0_0_#cbd5e1]">
                 SL
               </th>
-              <th rowSpan={2} className="px-3 py-3 border-r border-slate-300 min-w-[190px] sticky left-12 z-10 bg-slate-100/90 shadow-[1px_0_0_0_#cbd5e1]">
+              <th rowSpan={2} className="px-2.5 py-2.5 border-r border-slate-300 min-w-[130px] lg:min-w-[160px] sticky left-10 z-10 bg-slate-100/90 shadow-[1px_0_0_0_#cbd5e1]">
                 Member Name
               </th>
-              <th rowSpan={2} className="px-3 py-3 border-r border-slate-300 min-w-[85px] text-center">
+              <th rowSpan={2} className="px-2 py-2.5 border-r border-slate-300 text-center min-w-[70px]">
                 Share ID
               </th>
-              <th rowSpan={2} className="px-3 py-3 border-r border-slate-300 text-right min-w-[100px] bg-slate-50">
+              <th rowSpan={2} className="px-2 py-2.5 border-r border-slate-300 text-right min-w-[75px] bg-slate-50">
                 Admission Fee
               </th>
 
-              {/* Month Columns Groups */}
-              {ALL_MONTHS.map((m) => (
-                <th
-                  key={m}
-                  colSpan={2}
-                  className="px-2 py-1.5 border-r border-slate-300 text-center bg-slate-200/70 text-slate-800 font-bold"
-                >
-                  Month of {m}
-                </th>
-              ))}
+              {/* Month Columns Groups - Only displays activeMonths */}
+              {activeMonths.map((m) => {
+                const isCurrent = m === currentMonth;
+                return (
+                  <th
+                    key={m}
+                    colSpan={2}
+                    className={`px-1.5 py-1.5 border-r border-slate-300 text-center font-bold transition-colors ${
+                      isCurrent
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-200/70 text-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{m}</span>
+                      {isCurrent && (
+                        <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-white/20 text-white font-semibold">
+                          Current
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                );
+              })}
 
-              <th rowSpan={2} className="px-3 py-3 border-r border-slate-300 text-right min-w-[100px] bg-emerald-50/70 text-emerald-900 font-bold">
+              <th rowSpan={2} className="px-2 py-2.5 border-r border-slate-300 text-right min-w-[80px] bg-emerald-50/70 text-emerald-900 font-bold">
                 Total Deposit
               </th>
-              <th rowSpan={2} className="px-2 py-3 border-r border-slate-300 text-center min-w-[65px] bg-amber-50/40">
+              <th rowSpan={2} className="px-1.5 py-2.5 border-r border-slate-300 text-center min-w-[50px] bg-amber-50/40">
                 Due Mths
               </th>
-              <th rowSpan={2} className="px-3 py-3 border-r border-slate-300 text-right min-w-[85px] bg-amber-50/70 text-amber-900">
+              <th rowSpan={2} className="px-2 py-2.5 border-r border-slate-300 text-right min-w-[75px] bg-amber-50/70 text-amber-900">
                 Due Amount
               </th>
-              <th rowSpan={2} className="px-2 py-3 border-r border-slate-300 text-right min-w-[85px] bg-rose-50/50 text-rose-900">
+              <th rowSpan={2} className="px-1.5 py-2.5 border-r border-slate-300 text-right min-w-[65px] bg-rose-50/50 text-rose-900">
                 Late Fee (10%)
               </th>
-              <th rowSpan={2} className="px-3 py-3 border-r border-slate-300 text-right min-w-[95px] bg-rose-100/70 text-rose-950 font-bold">
+              <th rowSpan={2} className="px-2 py-2.5 border-r border-slate-300 text-right min-w-[75px] bg-rose-100/70 text-rose-950 font-bold">
                 Total Due
               </th>
-              <th rowSpan={2} className="px-2 py-3 border-r border-slate-300 text-center min-w-[80px]">
+              <th rowSpan={2} className="px-1.5 py-2.5 border-r border-slate-300 text-center min-w-[60px]">
                 Late Fee Paid
               </th>
-              <th rowSpan={2} className="px-3 py-3 text-center min-w-[100px]">
+              <th rowSpan={2} className="px-2 py-2.5 text-center min-w-[80px]">
                 Actions
               </th>
             </tr>
 
             {/* Sub-row for Date & Amount */}
-            <tr className="border-t border-slate-200 text-[11px] text-slate-600 bg-slate-50">
-              {ALL_MONTHS.map((m) => (
+            <tr className="border-t border-slate-200 text-xs text-slate-600 bg-slate-50">
+              {activeMonths.map((m) => (
                 <React.Fragment key={`${m}-sub`}>
                   <th className="px-2 py-1.5 border-r border-slate-200 text-center font-medium w-16">
                     Date
@@ -142,7 +205,7 @@ export const MasterLedgerTable: React.FC<MasterLedgerTableProps> = ({
                 >
                   {/* SL */}
                   <td
-                    className={`px-3 py-2.5 border-r border-slate-200 text-center font-sans text-slate-500 sticky left-0 z-10 shadow-[1px_0_0_0_#e2e8f0] ${
+                    className={`px-2 py-2 border-r border-slate-200 text-center font-sans text-slate-500 sticky left-0 z-10 shadow-[1px_0_0_0_#e2e8f0] ${
                       isClosed
                         ? 'bg-slate-100'
                         : hasDue
@@ -157,7 +220,7 @@ export const MasterLedgerTable: React.FC<MasterLedgerTableProps> = ({
 
                   {/* Member Name */}
                   <td
-                    className={`px-3 py-2.5 border-r border-slate-200 font-sans font-semibold text-slate-900 sticky left-12 z-10 shadow-[1px_0_0_0_#e2e8f0] ${
+                    className={`px-3 py-2 border-r border-slate-200 font-sans font-bold text-sm text-slate-900 sticky left-10 z-10 shadow-[1px_0_0_0_#e2e8f0] ${
                       isClosed
                         ? 'bg-slate-100'
                         : hasDue
@@ -170,8 +233,8 @@ export const MasterLedgerTable: React.FC<MasterLedgerTableProps> = ({
                     <div className="flex items-center justify-between gap-1 group">
                       <button
                         onClick={() => !isClosed && onSelectMember(share.memberName)}
-                        className={`text-left hover:text-emerald-700 transition-colors truncate max-w-[160px] ${
-                          isClosed ? 'text-slate-400 italic' : ''
+                        className={`text-left hover:text-emerald-700 transition-colors truncate max-w-[170px] ${
+                          isClosed ? 'text-slate-400 italic font-normal' : 'text-slate-900 font-bold'
                         }`}
                         title={share.memberName}
                       >
@@ -209,9 +272,9 @@ export const MasterLedgerTable: React.FC<MasterLedgerTableProps> = ({
                     {share.admissionFee.toLocaleString('en-IN')}
                   </td>
 
-                  {/* Monthly Payments (Aug, Sep, Oct, Nov, Dec) */}
-                  {ALL_MONTHS.map((m) => {
-                    const pay = share.months[m];
+                  {/* Monthly Payments (Dynamically rendered based on activeMonths) */}
+                  {activeMonths.map((m) => {
+                    const pay = share.months?.[m] || { status: 'upcoming', amount: 2800 };
                     if (isClosed) {
                       return (
                         <React.Fragment key={m}>
@@ -224,7 +287,7 @@ export const MasterLedgerTable: React.FC<MasterLedgerTableProps> = ({
                     if (pay.status === 'paid') {
                       return (
                         <React.Fragment key={m}>
-                          <td className="px-2 py-2 border-r border-slate-200 text-center text-slate-600 text-[11px]">
+                          <td className="px-2 py-2 border-r border-slate-200 text-center text-slate-600 text-xs font-mono">
                             {pay.date || '-'}
                           </td>
                           <td className="px-2 py-2 border-r border-slate-300 text-right font-medium text-emerald-800 bg-emerald-50/20">
@@ -241,16 +304,16 @@ export const MasterLedgerTable: React.FC<MasterLedgerTableProps> = ({
                     } else if (pay.status === 'due') {
                       return (
                         <React.Fragment key={m}>
-                          <td className="px-2 py-2 border-r border-slate-200 text-center text-rose-600 font-semibold bg-rose-50/60 font-sans">
+                          <td className="px-2 py-2 border-r border-slate-200 text-center text-rose-600 font-semibold bg-rose-50/60 font-sans text-xs">
                             Due
                           </td>
                           <td className="px-2 py-2 border-r border-slate-300 text-right bg-rose-50/60 font-semibold text-rose-700">
                             <button
                               onClick={() => onOpenPaymentForShare(share, m)}
-                              className="px-1.5 py-0.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-[10px] font-sans font-bold inline-flex items-center gap-0.5"
-                              title={`Pay Due for ${share.id} (${m})`}
+                              className="px-2 py-0.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 text-xs font-sans font-bold inline-flex items-center gap-0.5 cursor-pointer"
+                              title={`Record payment for ${share.id} (${m})`}
                             >
-                              Pay
+                              <span>{pay.amount ? pay.amount.toLocaleString('en-IN') : '2,800'}</span>
                             </button>
                           </td>
                         </React.Fragment>
@@ -260,21 +323,29 @@ export const MasterLedgerTable: React.FC<MasterLedgerTableProps> = ({
                       return (
                         <React.Fragment key={m}>
                           <td className="px-2 py-2 border-r border-slate-200 text-center text-slate-400">-</td>
-                          <td className="px-2 py-2 border-r border-slate-300 text-right text-slate-400">-</td>
+                          <td className="px-2 py-2 border-r border-slate-300 text-right text-slate-400">
+                            <button
+                              onClick={() => onOpenPaymentForShare(share, m)}
+                              className="text-slate-400 hover:text-slate-700 hover:underline cursor-pointer"
+                              title={`Advance payment for ${share.id} (${m})`}
+                            >
+                              -
+                            </button>
+                          </td>
                         </React.Fragment>
                       );
                     }
                   })}
 
                   {/* Total Deposit */}
-                  <td className="px-3 py-2.5 border-r border-slate-200 text-right font-bold text-emerald-700 bg-emerald-50/30">
+                  <td className="px-2.5 py-2 border-r border-slate-200 text-right font-bold text-emerald-700 bg-emerald-50/30">
                     {share.totalDeposit.toLocaleString('en-IN')}
                   </td>
 
                   {/* Due Months */}
-                  <td className="px-2 py-2.5 border-r border-slate-200 text-center">
+                  <td className="px-2 py-2 border-r border-slate-200 text-center">
                     {share.dueMonths > 0 ? (
-                      <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[11px]">
+                      <span className="inline-block px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-xs">
                         {share.dueMonths}
                       </span>
                     ) : (
@@ -283,135 +354,124 @@ export const MasterLedgerTable: React.FC<MasterLedgerTableProps> = ({
                   </td>
 
                   {/* Due Amount */}
-                  <td className="px-3 py-2.5 border-r border-slate-200 text-right font-bold text-amber-700">
-                    {share.dueAmount > 0 ? share.dueAmount.toLocaleString('en-IN') : <span className="text-slate-400 font-normal">-</span>}
+                  <td className="px-2.5 py-2 border-r border-slate-200 text-right font-medium text-amber-900 bg-amber-50/30">
+                    {share.dueAmount > 0 ? share.dueAmount.toLocaleString('en-IN') : '-'}
                   </td>
 
                   {/* Late Fee */}
-                  <td className="px-2 py-2.5 border-r border-slate-200 text-right font-medium text-rose-700">
-                    {share.lateFee > 0 ? share.lateFee.toLocaleString('en-IN') : <span className="text-slate-400 font-normal">-</span>}
+                  <td className="px-2 py-2 border-r border-slate-200 text-right text-rose-700">
+                    {share.lateFee > 0 ? share.lateFee.toLocaleString('en-IN') : '-'}
                   </td>
 
                   {/* Total Due */}
-                  <td className="px-3 py-2.5 border-r border-slate-200 text-right font-bold text-rose-700 bg-rose-50/40">
-                    {share.totalDue > 0 ? share.totalDue.toLocaleString('en-IN') : <span className="text-slate-400 font-normal">-</span>}
+                  <td className="px-2.5 py-2 border-r border-slate-200 text-right font-bold text-rose-800 bg-rose-50/40">
+                    {share.totalDue > 0 ? (
+                      <span className="text-rose-700 font-extrabold">
+                        {share.totalDue.toLocaleString('en-IN')}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
                   </td>
 
                   {/* Late Fee Paid */}
-                  <td className="px-2 py-2.5 border-r border-slate-200 text-center text-slate-400">
+                  <td className="px-2 py-2 border-r border-slate-200 text-center text-slate-600">
                     {share.lateFeePaid > 0 ? share.lateFeePaid.toLocaleString('en-IN') : '-'}
                   </td>
 
-                  {/* Actions Column */}
-                  <td className="px-3 py-2.5 text-center font-sans">
-                    {!isClosed && (
-                      <div className="flex items-center justify-center gap-1.5">
-                        {hasDue ? (
-                          <button
-                            onClick={() => onOpenPaymentForShare(share)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-semibold shadow-xs"
-                            title={`Clear dues for ${share.id} (${formatTaka(share.totalDue)})`}
-                          >
-                            <CreditCard className="w-3 h-3" />
-                            <span>Collect</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => onOpenPaymentForShare(share)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium"
-                            title={`Record payment for ${share.id}`}
-                          >
-                            <CreditCard className="w-3 h-3 text-slate-500" />
-                            <span>Pay</span>
-                          </button>
-                        )}
-
+                  {/* Actions */}
+                  <td className="px-2 py-2 text-center font-sans">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        onClick={() => onOpenPaymentForShare(share)}
+                        className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                        title="Record payment or dues"
+                      >
+                        Pay
+                      </button>
+                      <button
+                        onClick={() => onOpenReceiptForShare(share, activeMonths[0] as MonthKey || 'Oct-26')}
+                        className="p-1 rounded text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                        title="View Official Money Receipt"
+                      >
+                        <Receipt className="w-4 h-4" />
+                      </button>
+                      {onDeleteShare && !isClosed && (
                         <button
-                          onClick={() => onOpenReceiptForShare(share, 'Oct-26')}
-                          className="p-1 rounded text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
-                          title="View / Print Money Receipt"
+                          onClick={() => setShareToDelete(share)}
+                          className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Delete share from register"
                         >
-                          <Receipt className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
-
-                        {onDeleteShare && !isClosed && (
-                          <button
-                            onClick={() => setShareToDelete(share)}
-                            aria-label={`Delete share ${share.id}`}
-                            className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                            title={`Delete share ${share.id} from register (রেজিস্টার থেকে শেয়ার মুছুন)`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
             })}
           </tbody>
 
-          {/* Grand Total Row matching the original Excel spreadsheet */}
-          <tfoot className="bg-slate-900 text-white font-mono font-bold border-t-2 border-slate-700">
-            <tr>
-              <td colSpan={2} className="px-3 py-3 border-r border-slate-800 text-left font-sans uppercase tracking-wider text-amber-400 text-xs sticky left-0 z-10 bg-slate-900">
+          {/* Grand Total Row matching the original Excel spreadsheet - Frozen at Bottom */}
+          <tfoot className="sticky bottom-0 z-20 bg-slate-900 text-white font-mono font-bold shadow-[0_-3px_8px_rgba(0,0,0,0.25)] border-t-2 border-slate-700">
+            <tr className="bg-slate-900">
+              <td colSpan={2} className="px-3 py-3 border-r border-slate-800 text-left font-sans uppercase tracking-wider text-amber-400 text-xs sticky left-0 z-30 bg-slate-900 shadow-[1px_0_0_0_#334155]">
                 GRAND TOTAL
               </td>
-              <td className="px-3 py-3 border-r border-slate-800 text-center font-sans text-xs text-slate-300">
+              <td className="px-3 py-3 border-r border-slate-800 text-center font-sans text-xs text-slate-300 bg-slate-900">
                 {summary.totalShareIds} IDs
               </td>
-              <td className="px-3 py-3 border-r border-slate-800 text-right text-emerald-300">
+              <td className="px-3 py-3 border-r border-slate-800 text-right text-emerald-300 bg-slate-900">
                 {summary.totalAdmissionCollected.toLocaleString('en-IN')}
               </td>
 
-              {/* Monthly totals */}
-              {ALL_MONTHS.map((m) => {
-                const stat = summary.monthStats[m];
+              {/* Monthly totals for visible activeMonths */}
+              {activeMonths.map((m) => {
+                const stat = summary.monthStats?.[m] || { paidShares: 0, paidAmount: 0 };
                 return (
                   <React.Fragment key={`${m}-total`}>
-                    <td className="px-2 py-2 border-r border-slate-800 text-center text-slate-400 text-[10px]">
+                    <td className="px-2 py-2 border-r border-slate-800 text-center text-slate-400 text-xs">
                       {stat.paidShares > 0 ? `${stat.paidShares} Paid` : '-'}
                     </td>
-                    <td className="px-2 py-2 border-r border-slate-800 text-right text-emerald-300">
+                    <td className="px-2 py-2 border-r border-slate-800 text-right text-emerald-300 text-xs">
                       {stat.paidAmount > 0 ? stat.paidAmount.toLocaleString('en-IN') : '-'}
                     </td>
                   </React.Fragment>
                 );
               })}
 
-              {/* Grand Total Deposit */}
-              <td className="px-3 py-3 border-r border-slate-800 text-right text-base text-emerald-400 font-extrabold bg-emerald-950/40">
+              {/* Grand Total Deposit (All months & admission combined exact calculation) */}
+              <td className="px-3 py-3 border-r border-slate-800 text-right text-sm text-emerald-400 font-extrabold bg-emerald-950/40">
                 {summary.totalBankDeposit.toLocaleString('en-IN')}
               </td>
 
               {/* Total Due Months */}
-              <td className="px-2 py-3 border-r border-slate-800 text-center text-amber-400">
+              <td className="px-2 py-3 border-r border-slate-800 text-center text-amber-400 text-xs">
                 {summary.totalDueMonths}
               </td>
 
               {/* Total Due Amount */}
-              <td className="px-3 py-3 border-r border-slate-800 text-right text-amber-300">
+              <td className="px-3 py-3 border-r border-slate-800 text-right text-amber-300 text-xs">
                 {summary.totalDuePrincipal.toLocaleString('en-IN')}
               </td>
 
               {/* Total Late Fee */}
-              <td className="px-2 py-3 border-r border-slate-800 text-right text-rose-300">
+              <td className="px-2 py-3 border-r border-slate-800 text-right text-rose-300 text-xs">
                 {summary.totalLateFeeDue.toLocaleString('en-IN')}
               </td>
 
               {/* Total Due with Late Fee */}
-              <td className="px-3 py-3 border-r border-slate-800 text-right text-rose-400 font-extrabold bg-rose-950/40">
+              <td className="px-3 py-3 border-r border-slate-800 text-right text-rose-400 font-extrabold bg-rose-950/40 text-sm">
                 {summary.totalOutstandingDue.toLocaleString('en-IN')}
               </td>
 
               {/* Late Fee Paid */}
-              <td className="px-2 py-3 border-r border-slate-800 text-center text-slate-400">
+              <td className="px-2 py-3 border-r border-slate-800 text-center text-slate-400 text-xs">
                 {summary.totalLateFeeCollected > 0 ? summary.totalLateFeeCollected.toLocaleString('en-IN') : '-'}
               </td>
 
-              <td className="px-3 py-3 text-center text-slate-400 font-sans text-[11px]">
-                Active 30
+              <td className="px-3 py-3 text-center text-slate-400 font-sans text-xs">
+                Active {summary.totalActiveShares}
               </td>
             </tr>
           </tfoot>

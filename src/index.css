@@ -1,30 +1,132 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
   body {
+    font-family: var(--font-sans);
     background-color: #f8fafc;
     color: #0f172a;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.011em;
+  }
+
+  code, kbd, samp, pre, .font-mono {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum" 1, "zero" 1;
   }
 }
 
+/* =========================================================
+   STANDARD PRINT STYLESHEET (A4 / LETTER)
+   ========================================================= */
 @media print {
-  body {
-    background: white !important;
-    color: black !important;
+  @page {
+    size: A4 portrait;
+    margin: 12mm 10mm 12mm 10mm;
   }
 
-  header, nav, button, .print\:hidden {
+  /* Universal print resets */
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide interactive/ambient screen elements */
+  header, nav, button, input, .print\:hidden {
     display: none !important;
   }
 
+  /* CASE 1: When a Modal (Member Card or Money Receipt) is printing */
+  body.print-modal-active main,
+  body.print-modal-active > div > header,
+  body.print-modal-active > div > main {
+    display: none !important;
+  }
+
+  body.print-modal-active .print-modal {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    z-index: 99999 !important;
+  }
+
+  body.print-modal-active .print-modal > div {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Clean print layout for Member Portfolio Card */
+  #printable-member-portfolio {
+    display: block !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    page-break-inside: auto;
+  }
+
+  #printable-member-portfolio table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+
+  #printable-member-portfolio tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  #printable-member-portfolio td,
+  #printable-member-portfolio th {
+    padding: 6px 10px !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  /* Clean print layout for Money Receipt */
   #printable-receipt {
     display: block !important;
-    border: 2px solid #000 !important;
+    border: 2px solid #0f172a !important;
+    border-radius: 12px !important;
     box-shadow: none !important;
-    margin: 0 !important;
-    padding: 20px !important;
-    width: 100% !important;
+    margin: 10mm auto !important;
+    padding: 24px !important;
+    width: 95% !important;
+    max-width: 750px !important;
     page-break-inside: avoid;
+    background: #ffffff !important;
+  }
+
+  /* Prevent page breaks inside cards */
+  .break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 }

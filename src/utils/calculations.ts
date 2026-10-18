@@ -25,7 +25,9 @@ export function calculateShareRecord(share: ShareRecord): ShareRecord {
   let dueMonths = 0;
   let dueAmount = 0;
 
-  for (const m of ALL_MONTHS) {
+  // Evaluate across all months configured on the share record
+  const monthKeys = Object.keys(share.months || {});
+  for (const m of monthKeys) {
     const payment = share.months[m];
     if (payment) {
       if (payment.status === 'paid') {
@@ -67,13 +69,7 @@ export function calculateSocietySummary(shares: ShareRecord[]): SocietySummary {
   let totalDuePrincipal = 0;
   let totalLateFeeDue = 0;
 
-  const monthStats: SocietySummary['monthStats'] = {
-    'Aug-26': { paidShares: 0, paidAmount: 0, dueShares: 0, dueAmount: 0, upcomingShares: 0 },
-    'Sep-26': { paidShares: 0, paidAmount: 0, dueShares: 0, dueAmount: 0, upcomingShares: 0 },
-    'Oct-26': { paidShares: 0, paidAmount: 0, dueShares: 0, dueAmount: 0, upcomingShares: 0 },
-    'Nov-26': { paidShares: 0, paidAmount: 0, dueShares: 0, dueAmount: 0, upcomingShares: 0 },
-    'Dec-26': { paidShares: 0, paidAmount: 0, dueShares: 0, dueAmount: 0, upcomingShares: 0 },
-  };
+  const monthStats: SocietySummary['monthStats'] = {};
 
   const uniqueMemberNames = new Set<string>();
 
@@ -98,7 +94,11 @@ export function calculateSocietySummary(shares: ShareRecord[]): SocietySummary {
     totalAdmissionCollected += share.admissionFee;
     totalLateFeeCollected += share.lateFeePaid || 0;
 
-    for (const m of ALL_MONTHS) {
+    const allRecordMonths = Object.keys(share.months || {});
+    for (const m of allRecordMonths) {
+      if (!monthStats[m]) {
+        monthStats[m] = { paidShares: 0, paidAmount: 0, dueShares: 0, dueAmount: 0, upcomingShares: 0 };
+      }
       const p = share.months[m];
       if (!p) continue;
       if (p.status === 'paid') {

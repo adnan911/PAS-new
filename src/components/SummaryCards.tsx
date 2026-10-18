@@ -1,7 +1,7 @@
 import React from 'react';
 import { SocietySummary } from '../types';
 import { formatTaka } from '../utils/calculations';
-import { Users, Landmark, AlertCircle, PieChart, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { Users, Landmark, AlertCircle, TrendingUp } from 'lucide-react';
 
 interface SummaryCardsProps {
   summary: SocietySummary;
@@ -15,7 +15,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
   onFilterAll,
 }) => {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {/* 1. Total Active Shares */}
       <div
         onClick={onFilterAll}
@@ -118,43 +118,6 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
           <div className="flex items-center justify-between pt-0.5 text-xs text-amber-700 font-medium">
             <span>Action Required:</span>
             <span>Click to view 3 shares</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Collection Efficiency */}
-      <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-teal-50/60 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110 pointer-events-none" />
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Collection Efficiency
-          </span>
-          <div className="w-9 h-9 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
-            <PieChart className="w-5 h-5" />
-          </div>
-        </div>
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xl sm:text-3xl font-extrabold text-teal-700 tracking-tight">
-            {summary.collectionEfficiency}%
-          </span>
-          <span className="text-xs font-semibold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">
-            Grade A+
-          </span>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mt-3">
-          <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-            <div
-              className="bg-gradient-to-r from-teal-500 to-emerald-500 h-2.5 rounded-full transition-all duration-700"
-              style={{ width: `${Math.min(100, summary.collectionEfficiency)}%` }}
-            />
-          </div>
-          <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-            <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5" /> 27 of 30 Shares fully current
-            </span>
-            <span>Target: 100%</span>
           </div>
         </div>
       </div>

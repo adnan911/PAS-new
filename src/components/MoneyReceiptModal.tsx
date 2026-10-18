@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ShareRecord, MonthKey } from '../types';
 import { formatTaka, takaInWords } from '../utils/calculations';
 import { Printer, X, ShieldCheck, Trash2, Edit3, AlertTriangle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface MoneyReceiptModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export const MoneyReceiptModal: React.FC<MoneyReceiptModalProps> = ({
   onVoidPayment,
   onEditPayment,
 }) => {
+  const { requireAdmin } = useAuth();
   const [showConfirmVoid, setShowConfirmVoid] = useState<boolean>(false);
 
   if (!isOpen || !share) return null;
@@ -53,9 +55,9 @@ export const MoneyReceiptModal: React.FC<MoneyReceiptModalProps> = ({
       onClick={(e) => {
         if (e.target === e.currentTarget && !showConfirmVoid) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto print:static print:p-0 print:bg-white print:overflow-visible print:block print-modal"
     >
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8">
+      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8 print:m-0 print:border-none print:shadow-none print:max-w-none print:w-full print:block">
         {/* Top Control Bar (Hidden when printing) */}
         <div className="flex flex-wrap items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50 gap-2 print:hidden">
           <div className="flex items-center gap-2">
@@ -66,8 +68,10 @@ export const MoneyReceiptModal: React.FC<MoneyReceiptModalProps> = ({
             {onEditPayment && (
               <button
                 onClick={() => {
-                  onEditPayment(share, month);
-                  onClose();
+                  requireAdmin(() => {
+                    onEditPayment(share, month);
+                    onClose();
+                  }, 'edit payment entry');
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
                 title="Edit payment amount, date or notes"
@@ -79,7 +83,7 @@ export const MoneyReceiptModal: React.FC<MoneyReceiptModalProps> = ({
 
             {onVoidPayment && (
               <button
-                onClick={() => setShowConfirmVoid(true)}
+                onClick={() => requireAdmin(() => setShowConfirmVoid(true), 'void/delete payment entry')}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors cursor-pointer shadow-xs"
                 title="Void and delete this accidental installment entry (ভুল এন্ট্রি মুছুন)"
               >
@@ -89,7 +93,7 @@ export const MoneyReceiptModal: React.FC<MoneyReceiptModalProps> = ({
             )}
 
             <button
-              onClick={handlePrint}
+              onClick={() => requireAdmin(handlePrint, 'print this money receipt')}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
               <Printer className="w-4 h-4" />
@@ -110,6 +114,13 @@ export const MoneyReceiptModal: React.FC<MoneyReceiptModalProps> = ({
         <div className="p-8 sm:p-10 font-sans print:p-4 text-slate-900 bg-white" id="printable-receipt">
           {/* Header */}
           <div className="text-center pb-6 border-b-2 border-slate-900">
+            <div className="flex justify-center mb-2.5">
+              <img
+                src="/logo.png"
+                alt="Progressive Association Society"
+                className="w-16 h-16 object-contain"
+              />
+            </div>
             <div className="inline-block px-3 py-1 rounded-full bg-slate-100 text-slate-800 font-bold text-[11px] uppercase tracking-wider mb-2">
               Govt. Registered Multipurpose Cooperative Society
             </div>

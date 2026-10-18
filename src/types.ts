@@ -1,4 +1,4 @@
-export type MonthKey = 'Aug-26' | 'Sep-26' | 'Oct-26' | 'Nov-26' | 'Dec-26';
+export type MonthKey = 'Aug-26' | 'Sep-26' | 'Oct-26' | 'Nov-26' | 'Dec-26' | string;
 
 export const ALL_MONTHS: MonthKey[] = ['Aug-26', 'Sep-26', 'Oct-26', 'Nov-26', 'Dec-26'];
 
@@ -18,8 +18,10 @@ export interface ShareRecord {
   sl?: number | string;
   memberName: string;
   phone?: string;
+  address?: string;
+  nid?: string;
   admissionFee: number;
-  months: Record<MonthKey, MonthPayment>;
+  months: Record<string, MonthPayment>;
   totalDeposit: number;
   dueMonths: number;
   dueAmount: number;
@@ -27,6 +29,20 @@ export interface ShareRecord {
   totalDue: number;
   lateFeePaid: number;
   isClosed?: boolean;
+}
+
+export interface MemberDirectoryItem {
+  name: string;
+  phone: string;
+  address: string;
+  nid: string;
+  shareIds: string[];
+  sharesCount: number;
+  totalFunded: number;
+  totalAdmission: number;
+  totalDue: number;
+  dueMonths: number;
+  status: 'clean' | 'due' | 'closed';
 }
 
 export interface SocietySummary {
@@ -42,7 +58,7 @@ export interface SocietySummary {
   totalLateFeeDue: number;
   totalOutstandingDue: number;
   collectionEfficiency: number;
-  monthStats: Record<MonthKey, {
+  monthStats: Record<string, {
     paidShares: number;
     paidAmount: number;
     dueShares: number;

@@ -8,11 +8,15 @@ import { MasterLedgerTable } from './components/MasterLedgerTable';
 import { MemberCardsView } from './components/MemberCardsView';
 import { MonthReconciliationView } from './components/MonthReconciliationView';
 import { OverdueRemindersView } from './components/OverdueRemindersView';
+import { MembersDirectoryView } from './components/MembersDirectoryView';
 import { MoneyReceiptModal } from './components/MoneyReceiptModal';
 import { RecordPaymentModal } from './components/RecordPaymentModal';
 import { AddMemberModal } from './components/AddMemberModal';
 import { MemberDetailModal } from './components/MemberDetailModal';
 import { GoogleSheetSyncModal } from './components/GoogleSheetSyncModal';
+import { AdminLoginModal } from './components/AdminLoginModal';
+import { MonthSettingsModal } from './components/MonthSettingsModal';
+import { useAuth } from './context/AuthContext';
 import { initAuth, googleSignIn, getAccessToken, logout } from './services/googleAuth';
 import {
   SheetMetadata,
@@ -33,6 +37,7 @@ import {
   Filter,
   CheckCircle2,
   FileSpreadsheet,
+  Contact,
   X,
 } from 'lucide-react';
 
@@ -54,7 +59,7 @@ export default function App() {
     return INITIAL_SHARES;
   });
 
-  const [activeTab, setActiveTab] = useState<'ledger' | 'cards' | 'months' | 'defaulters'>('ledger');
+  const [activeTab, setActiveTab] = useState<'ledger' | 'cards' | 'months' | 'defaulters' | 'members'>('ledger');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'overdue' | 'paid' | 'closed'>('all');
 
@@ -70,6 +75,51 @@ export default function App() {
   const [isAddShareOpen, setIsAddShareOpen] = useState<boolean>(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState<boolean>(false);
   const [selectedMemberForDetail, setSelectedMemberForDetail] = useState<string | null>(null);
+
+  // Month Configuration & Display State
+  const [isMonthSettingsOpen, setIsMonthSettingsOpen] = useState<boolean>(false);
+  const [allConfiguredMonths, setAllConfiguredMonths] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('pas_configured_months_v1');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return ['Aug-26', 'Sep-26', 'Oct-26', 'Nov-26', 'Dec-26'];
+  });
+
+  const [activeMonths, setActiveMonths] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('pas_active_display_months_v1');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return ['Aug-26', 'Sep-26', 'Oct-26', 'Nov-26', 'Dec-26'];
+  });
+
+  const [currentMonth, setCurrentMonth] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('pas_current_month_v1');
+      if (saved) return saved;
+    } catch (e) {}
+    return 'Oct-26';
+  });
+
+  // Persist month configuration
+  useEffect(() => {
+    try {
+      localStorage.setItem('pas_configured_months_v1', JSON.stringify(allConfiguredMonths));
+    } catch (e) {}
+  }, [allConfiguredMonths]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pas_active_display_months_v1', JSON.stringify(activeMonths));
+    } catch (e) {}
+  }, [activeMonths]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pas_current_month_v1', currentMonth);
+    } catch (e) {}
+  }, [currentMonth]);
 
   // Google Sheets Live Sync State
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
@@ -129,23 +179,27 @@ export default function App() {
     });
   }, [shares, statusFilter, searchQuery]);
 
+  const { requireAdmin } = useAuth();
+
   // Routing Handlers
   const handleOpenPaymentForShare = (share: ShareRecord, month?: MonthKey) => {
-    setSelectedShareForPayment(share);
-    if (month) {
-      setSelectedMonthForPayment(month);
-    } else if (share.dueMonths > 0) {
-      const firstDue = (['Aug-26', 'Sep-26', 'Oct-26', 'Nov-26', 'Dec-26'] as MonthKey[]).find(
-        (m) => share.months[m]?.status === 'due'
-      );
-      setSelectedMonthForPayment(firstDue || 'Sep-26');
-    } else {
-      const firstUpcoming = (['Aug-26', 'Sep-26', 'Oct-26', 'Nov-26', 'Dec-26'] as MonthKey[]).find(
-        (m) => share.months[m]?.status === 'upcoming'
-      );
-      setSelectedMonthForPayment(firstUpcoming || 'Nov-26');
-    }
-    setIsRecordPaymentOpen(true);
+    requireAdmin(() => {
+      setSelectedShareForPayment(share);
+      if (month) {
+        setSelectedMonthForPayment(month);
+      } else if (share.dueMonths > 0) {
+        const firstDue = (['Aug-26', 'Sep-26', 'Oct-26', 'Nov-26', 'Dec-26'] as MonthKey[]).find(
+          (m) => share.months[m]?.status === 'due'
+        );
+        setSelectedMonthForPayment(firstDue || 'Sep-26');
+      } else {
+        const firstUpcoming = (['Aug-26', 'Sep-26', 'Oct-26', 'Nov-26', 'Dec-26'] as MonthKey[]).find(
+          (m) => share.months[m]?.status === 'upcoming'
+        );
+        setSelectedMonthForPayment(firstUpcoming || 'Nov-26');
+      }
+      setIsRecordPaymentOpen(true);
+    }, 'record or edit payment entries');
   };
 
   const handleOpenReceiptForShare = (share: ShareRecord, month?: MonthKey) => {
@@ -373,7 +427,7 @@ export default function App() {
     triggerAutoSyncIfEnabled(updated);
   };
 
-  const handleClearFullDue = (shareId: string, waiveLateFee: boolean) => {
+  const executeClearFullDue = (shareId: string, waiveLateFee: boolean) => {
     const updated = shares.map((s) => {
       if (s.id !== shareId) return s;
 
@@ -407,11 +461,19 @@ export default function App() {
     triggerAutoSyncIfEnabled(updated);
   };
 
+  const handleClearFullDue = (shareId: string, waiveLateFee: boolean) => {
+    requireAdmin(() => {
+      executeClearFullDue(shareId, waiveLateFee);
+    }, 'clear outstanding dues');
+  };
+
   const handleAddShare = (newShare: ShareRecord) => {
-    const updated = [...shares, newShare];
-    setShares(updated);
-    showToast(`Share ${newShare.id} registered successfully for ${newShare.memberName}!`);
-    triggerAutoSyncIfEnabled(updated);
+    requireAdmin(() => {
+      const updated = [...shares, newShare];
+      setShares(updated);
+      showToast(`Share ${newShare.id} registered successfully for ${newShare.memberName}!`);
+      triggerAutoSyncIfEnabled(updated);
+    }, 'add a new share');
   };
 
   const handleRevertPayment = (
@@ -419,43 +481,167 @@ export default function App() {
     month: MonthKey,
     targetStatus?: 'due' | 'upcoming'
   ) => {
-    // Intelligently default to 'due' for past billing months (Aug, Sep, Oct) and 'upcoming' for future months
-    const defaultStatus: 'due' | 'upcoming' =
-      targetStatus ||
-      (month === 'Nov-26' || month === 'Dec-26' ? 'upcoming' : 'due');
+    requireAdmin(() => {
+      // Intelligently default to 'due' for past billing months (Aug, Sep, Oct) and 'upcoming' for future months
+      const defaultStatus: 'due' | 'upcoming' =
+        targetStatus ||
+        (month === 'Nov-26' || month === 'Dec-26' ? 'upcoming' : 'due');
 
-    const updated = shares.map((s) => {
-      if (s.id !== shareId) return s;
+      const updated = shares.map((s) => {
+        if (s.id !== shareId) return s;
 
-      const updatedMonths = {
-        ...s.months,
-        [month]: {
-          status: defaultStatus,
-          amount: 2800,
-        },
-      };
+        const updatedMonths = {
+          ...s.months,
+          [month]: {
+            status: defaultStatus,
+            amount: 2800,
+          },
+        };
 
-      return calculateShareRecord({
-        ...s,
-        months: updatedMonths,
-        lateFeePaid: Math.max(0, (s.lateFeePaid || 0) - 280),
+        return calculateShareRecord({
+          ...s,
+          months: updatedMonths,
+          lateFeePaid: Math.max(0, (s.lateFeePaid || 0) - 280),
+        });
       });
-    });
 
-    setShares(updated);
-    showToast(
-      defaultStatus === 'due'
-        ? `Payment for ${shareId} (${month}) reverted to Overdue (Due).`
-        : `Payment entry for ${shareId} (${month}) has been deleted.`
-    );
-    triggerAutoSyncIfEnabled(updated);
+      setShares(updated);
+      showToast(
+        defaultStatus === 'due'
+          ? `Payment for ${shareId} (${month}) reverted to Overdue (Due).`
+          : `Payment entry for ${shareId} (${month}) has been deleted.`
+      );
+      triggerAutoSyncIfEnabled(updated);
+    }, 'delete or revert payment entry');
   };
 
   const handleDeleteShare = (shareId: string) => {
-    const updated = shares.filter((s) => s.id !== shareId);
-    setShares(updated);
-    showToast(`Share ${shareId} deleted from register.`);
-    triggerAutoSyncIfEnabled(updated);
+    requireAdmin(() => {
+      const updated = shares.filter((s) => s.id !== shareId);
+      setShares(updated);
+      showToast(`Share ${shareId} deleted from register.`);
+      triggerAutoSyncIfEnabled(updated);
+    }, 'delete share from register');
+  };
+
+  const handleUpdateMemberDetails = ({
+    oldName,
+    newName,
+    phone,
+    address,
+    nid,
+  }: {
+    oldName: string;
+    newName: string;
+    phone: string;
+    address: string;
+    nid: string;
+  }) => {
+    requireAdmin(() => {
+      const trimmedOld = oldName.trim();
+      const trimmedNew = newName.trim() || trimmedOld;
+
+      const updated = shares.map((s) => {
+        if (s.memberName?.trim() === trimmedOld) {
+          return {
+            ...s,
+            memberName: trimmedNew,
+            phone: phone.trim(),
+            address: address.trim(),
+            nid: nid.trim(),
+          };
+        }
+        return s;
+      });
+
+      setShares(updated);
+      showToast(`Updated member directory profile for "${trimmedNew}"!`);
+      triggerAutoSyncIfEnabled(updated);
+    }, 'edit member directory profile');
+  };
+
+  // Month Configuration Handlers
+  const handleToggleMonthVisibility = (month: string) => {
+    setActiveMonths((prev) => {
+      if (prev.includes(month)) {
+        if (prev.length <= 1) {
+          showToast('At least one month must remain visible on the table.');
+          return prev;
+        }
+        return prev.filter((m) => m !== month);
+      } else {
+        return allConfiguredMonths.filter((m) => m === month || prev.includes(m));
+      }
+    });
+  };
+
+  const handleShowOnlyCurrentMonth = (month: string) => {
+    setActiveMonths([month]);
+    showToast(`Display focused on current month "${month}". Other months hidden.`);
+  };
+
+  const handleShowAllMonths = () => {
+    setActiveMonths([...allConfiguredMonths]);
+    showToast('Displaying all configured months.');
+  };
+
+  const handleAddMonth = (monthKey: string) => {
+    requireAdmin(() => {
+      if (allConfiguredMonths.includes(monthKey)) return;
+
+      const nextMonths = [...allConfiguredMonths, monthKey];
+      setAllConfiguredMonths(nextMonths);
+      setActiveMonths([...activeMonths, monthKey]);
+
+      // Initialize the month across all shares as 'upcoming'
+      const updated = shares.map((s) => {
+        if (s.months[monthKey]) return s;
+        return calculateShareRecord({
+          ...s,
+          months: {
+            ...s.months,
+            [monthKey]: {
+              status: 'upcoming',
+              amount: 2800,
+            },
+          },
+        });
+      });
+
+      setShares(updated);
+      showToast(`Added new billing month "${monthKey}" to the society register!`);
+      triggerAutoSyncIfEnabled(updated);
+    }, `add month "${monthKey}"`);
+  };
+
+  const handleRemoveMonth = (monthKey: string) => {
+    requireAdmin(() => {
+      const nextMonths = allConfiguredMonths.filter((m) => m !== monthKey);
+      setAllConfiguredMonths(nextMonths);
+      setActiveMonths((prev) => prev.filter((m) => m !== monthKey));
+      if (currentMonth === monthKey && nextMonths.length > 0) {
+        setCurrentMonth(nextMonths[0]);
+      }
+
+      // Remove the month key from all shares
+      const updated = shares.map((s) => {
+        const copyMonths = { ...s.months };
+        delete copyMonths[monthKey];
+        return calculateShareRecord({
+          ...s,
+          months: copyMonths,
+        });
+      });
+
+      setShares(updated);
+      showToast(`Removed month "${monthKey}" from register.`);
+      triggerAutoSyncIfEnabled(updated);
+    }, `remove month "${monthKey}"`);
+  };
+
+  const handleChangeCurrentMonth = (monthKey: string) => {
+    setCurrentMonth(monthKey);
+    showToast(`Active focused billing month set to "${monthKey}".`);
   };
 
   const handleConfirmReset = () => {
@@ -526,6 +712,18 @@ export default function App() {
     window.print();
   };
 
+  // Toggle body class when a modal is open so print stylesheet isolates the modal perfectly
+  useEffect(() => {
+    if (isReceiptOpen || !!selectedMemberForDetail) {
+      document.body.classList.add('print-modal-active');
+    } else {
+      document.body.classList.remove('print-modal-active');
+    }
+    return () => {
+      document.body.classList.remove('print-modal-active');
+    };
+  }, [isReceiptOpen, selectedMemberForDetail]);
+
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans antialiased selection:bg-emerald-500 selection:text-white">
       {/* Toast Notification */}
@@ -545,18 +743,18 @@ export default function App() {
       {/* Main Navbar */}
       <Navbar
         onOpenRecordPayment={() => handleOpenPaymentForShare(shares[0])}
-        onOpenAddShare={() => setIsAddShareOpen(true)}
-        onExportCSV={handleExportCSV}
-        onPrint={handlePrint}
-        onResetData={() => setIsResetConfirmOpen(true)}
+        onOpenAddShare={() => requireAdmin(() => setIsAddShareOpen(true), 'add a new share')}
+        onExportCSV={() => requireAdmin(handleExportCSV, 'export ledger to CSV')}
+        onPrint={() => requireAdmin(handlePrint, 'print dashboard report')}
+        onResetData={() => requireAdmin(() => setIsResetConfirmOpen(true), 'reset ledger data')}
         isSheetConnected={!!connectedSheet}
         isSyncing={isSyncing}
         sheetTitle={connectedSheet?.title}
-        onOpenSyncModal={() => setIsSyncModalOpen(true)}
+        onOpenSyncModal={() => requireAdmin(() => setIsSyncModalOpen(true), 'sync with Google Sheets')}
       />
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6 space-y-6">
         {/* KPI Summary Cards */}
         <SummaryCards
           summary={summary}
@@ -619,6 +817,18 @@ export default function App() {
             >
               <AlertTriangle className="w-4 h-4 text-rose-600" />
               <span>Overdue ({summary.totalDueMonths > 0 ? `${summary.totalDueMonths / 2} Shares` : '0'})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('members')}
+              className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === 'members'
+                  ? 'bg-white text-emerald-800 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Contact className="w-4 h-4 text-emerald-600" />
+              <span>Members Directory</span>
             </button>
           </div>
 
@@ -703,6 +913,10 @@ export default function App() {
               setSelectedMemberForDetail(name);
             }}
             onDeleteShare={handleDeleteShare}
+            allConfiguredMonths={allConfiguredMonths}
+            activeMonths={activeMonths}
+            currentMonth={currentMonth}
+            onOpenMonthSettings={() => setIsMonthSettingsOpen(true)}
           />
         )}
 
@@ -731,6 +945,18 @@ export default function App() {
             shares={shares}
             onOpenPaymentForShare={handleOpenPaymentForShare}
             onClearFullDue={handleClearFullDue}
+          />
+        )}
+
+        {activeTab === 'members' && (
+          <MembersDirectoryView
+            shares={shares}
+            onSelectMember={(name) => {
+              setSelectedMemberForDetail(name);
+            }}
+            onOpenPaymentForShare={handleOpenPaymentForShare}
+            onOpenReceiptForShare={handleOpenReceiptForShare}
+            onUpdateMemberDetails={handleUpdateMemberDetails}
           />
         )}
       </main>
@@ -778,6 +1004,7 @@ export default function App() {
           handleOpenReceiptForShare(share, month);
         }}
         onDeleteShare={handleDeleteShare}
+        onUpdateMemberDetails={handleUpdateMemberDetails}
       />
 
       {/* Reset Confirmation Modal */}
@@ -837,6 +1064,24 @@ export default function App() {
         onPushToSheet={handlePushToSheet}
         onToggleAutoSync={handleToggleAutoSync}
         onDisconnectSheet={handleDisconnectSheet}
+      />
+
+      {/* Admin Login Modal */}
+      <AdminLoginModal />
+
+      {/* Month Display & Settings Modal */}
+      <MonthSettingsModal
+        isOpen={isMonthSettingsOpen}
+        onClose={() => setIsMonthSettingsOpen(false)}
+        allConfiguredMonths={allConfiguredMonths}
+        activeMonths={activeMonths}
+        currentMonth={currentMonth}
+        onToggleMonthVisibility={handleToggleMonthVisibility}
+        onShowOnlyCurrentMonth={handleShowOnlyCurrentMonth}
+        onShowAllMonths={handleShowAllMonths}
+        onAddMonth={handleAddMonth}
+        onRemoveMonth={handleRemoveMonth}
+        onChangeCurrentMonth={handleChangeCurrentMonth}
       />
     </div>
   );
